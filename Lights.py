@@ -7,7 +7,35 @@
 """
 
 import time
-from machine import Pin, PWM
+try:
+    from machine import Pin, PWM
+except ImportError:
+    class Pin:
+        IN = 0
+        OUT = 1
+        def __init__(self, id, mode=-1, value=None):
+            self.id = id
+            self.mode = mode
+            self._val = 0
+        def __call__(self, val=None):
+            if val is not None:
+                self._val = val
+            return self._val
+        def value(self, val=None):
+            return self.__call__(val)
+        def toggle(self):
+            self._val = 1 if self._val == 0 else 0
+            return self._val
+
+    class PWM:
+        def __init__(self, pin):
+            self.pin = pin
+            self._duty = 0
+        def freq(self, f):
+            pass
+        def duty_u16(self, val):
+            self._duty = val
+
 from Log import *
 MAX = 65535
 
@@ -32,37 +60,43 @@ class Light:
     Pin. Save the pin in an instance variable
     """
     
-    def __init__(self, pin, name="Unnamed"):
+    def __init__(self, pin, name="Unnamed", active_high=True):
         """
         Light constructor - save the pin and set it to OUTPUT mode
         pin is the NUMBER of the pin that the LED is connected to. So
         if connecting to GP21, pass the value 21 to pin        
         name is an optional name of the light
+        active_high is True for active-HIGH LEDs (default), False for active-LOW LEDs
         """
             
         Log.i(f"Light: constructor")
         self._name = name
         self._pin = pin
+        self._active_high = active_high
         self._blinking = False
         self._led = Pin(self._pin, Pin.OUT)  # We need this to use the IO functions
+        self.off()
 
     def on(self):
         """ on: Turn the light on """
         
         Log.i(f"Light: turning on {self._name} light at pin {self._pin}")
-        self._led.value(1)
+        self._led.value(1 if self._active_high else 0)
 
     def off(self):
         """ off: turn the light off """
         
         Log.i(f"Light: turning off {self._name} light at pin {self._pin}")
-        self._led.value(0)
+        self._led.value(0 if self._active_high else 1)
 
     def flip(self):
         """ flip: turn off if it was on, on if it was off """
         
         Log.i(f"Light: Toggling {self._name} light at pin {self._pin}")
-        self._led.toggle()
+        if self.isOn():
+            self.off()
+        else:
+            self.on()
 
     def blink(self, delay=0.5, times=1):
         """ blink: turn on for delay sec, off for delay sec [times] times"""
@@ -79,7 +113,7 @@ class Light:
         Check to see if the light is on or off
         """
 
-        return self._led.value() == 1
+        return self._led.value() == (1 if self._active_high else 0)
 
 
 class DimLight(Light):
@@ -88,11 +122,11 @@ class DimLight(Light):
     and in addition will have the ability to set brightness
     """
 
-    def __init__(self, pin, name="Unnamed"):
+    def __init__(self, pin, name="Unnamed", active_high=True):
         """ Dimmable light constructor """
 
         Log.i("Dimmable light constructor")
-        super().__init__(pin, name)
+        super().__init__(pin, name, active_high=active_high)
         self._pwm = PWM(self._led)  # Create an instance of PWM object (pulse-width modulation)
         self._pwm.freq(100000)   # set frequency to 100 khz
         self._onState = False
@@ -127,10 +161,10 @@ class DimLight(Light):
         """ Set brightness to a specific level 0-1 """
 
         Log.i(f"Dimlight: setting Light {self._name} brightness to {brightness}")
-        if (brightness == 1):
-            self._pwm.duty_u16(MAX)
-        else:
-            self._pwm.duty_u16(int(MAX * brightness))
+        duty = MAX if brightness == 1 else int(MAX * brightness)
+        if not self._active_high:
+            duty = MAX - duty
+        self._pwm.duty_u16(duty)
 
         if brightness < 0.05:
             self._onState = False

@@ -261,23 +261,35 @@ class Net:
         return time.localtime()
 
 
-    def getWeatherByLocation(self, location_name):
-        """ Get temperature and humidity from Open-Meteo for a given city/state name
-            Returns a dictionary with resolved_location,
-            temperature, humidity and rain_chance
+    def getWeatherByLocation(self, location_name=None, latitude=None, longitude=None):
+        """ Get temperature and humidity from Open-Meteo for a given city/state name or coordinates.
+            If latitude and longitude are provided, geocoding API lookup is skipped.
+            Returns a dictionary with resolved_location, temperature, humidity, rain_chance,
+            latitude, and longitude.
         """
-        query = location_name.replace(" ", "%20")
-        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={query}&count=1"
-        geo_data = self.getJson(geo_url)
-        
-        if not geo_data or "results" not in geo_data:
-            Log.e(f"Could not find coordinates for location: {location_name}")
-            return None
+        lat = latitude
+        lon = longitude
+        resolved_name = location_name
+
+        if lat is None or lon is None:
+            if not location_name:
+                Log.e("Neither location_name nor coordinates (latitude, longitude) provided.")
+                return None
+            query = location_name.replace(" ", "%20")
+            geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={query}&count=1"
+            geo_data = self.getJson(geo_url)
             
-        location_info = geo_data["results"][0]
-        lat = location_info["latitude"]
-        lon = location_info["longitude"]
-        resolved_name = f"{location_info.get('name')}, {location_info.get('admin1', '')}"
+            if not geo_data or "results" not in geo_data or not geo_data["results"]:
+                Log.e(f"Could not find coordinates for location: {location_name}")
+                return None
+                
+            location_info = geo_data["results"][0]
+            lat = location_info["latitude"]
+            lon = location_info["longitude"]
+            resolved_name = f"{location_info.get('name')}, {location_info.get('admin1', '')}"
+        else:
+            if not resolved_name:
+                resolved_name = f"{lat}, {lon}"
         
         weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,precipitation_probability&temperature_unit=fahrenheit"
         weather_data = self.getJson(weather_url)
@@ -288,7 +300,9 @@ class Net:
                 "resolved_location": resolved_name,
                 "temperature": current["temperature_2m"],
                 "humidity": current["relative_humidity_2m"],
-                "rain_chance": current["precipitation_probability"]
+                "rain_chance": current["precipitation_probability"],
+                "latitude": lat,
+                "longitude": lon
             }
         
         return None
