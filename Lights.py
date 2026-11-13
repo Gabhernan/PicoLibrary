@@ -122,13 +122,13 @@ class DimLight(Light):
     and in addition will have the ability to set brightness
     """
 
-    def __init__(self, pin, name="Unnamed", active_high=True):
+    def __init__(self, pin, name="Unnamed", active_high=True, freq=1000):
         """ Dimmable light constructor """
 
         Log.i("Dimmable light constructor")
         super().__init__(pin, name, active_high=active_high)
         self._pwm = PWM(self._led)  # Create an instance of PWM object (pulse-width modulation)
-        self._pwm.freq(100000)   # set frequency to 100 khz
+        self._pwm.freq(freq)   # Set frequency, default 1 kHz (standard for LEDs)
         self._onState = False
         self._running = False
 

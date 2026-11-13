@@ -261,7 +261,7 @@ if __name__ == "__main__":
     
     Log.i("Testing Passive Buzzer")
 
-    buzzer = PassiveBuzzer(16, "TestBuzzer")
+    buzzer = PassiveBuzzer(15, "TestBuzzer")
     buzzer.play(DO)
     time.sleep(1)
     buzzer.stop()

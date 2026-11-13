@@ -60,10 +60,11 @@ class LCDDisplay(Display):
     
     """
     
-    def __init__(self, rs=5, e=4, d4=3, d5=2, d6=1, d7=0, *, sda=-1, scl=-1):
+    def __init__(self, rs=5, e=4, d4=3, d5=2, d6=1, d7=0, *, sda=-1, scl=-1, i2c_addr=None):
         """
         Combined constructor for the direct-driven displays
         explicitly pass in the sda and scl if you need to use I2C
+        Optionally pass i2c_addr to explicitly specify the I2C address of the display backpack
         """
         
         if sda < 0:
@@ -90,13 +91,25 @@ class LCDDisplay(Display):
                 raise ValueError('Invalid SDA/SCL pins')
             i2c = I2C(i2cid, sda=Pin(sda), scl=Pin(scl), freq=400000)
             try:
-                I2C_ADDR = i2c.scan()[0]
                 from pico_i2c_lcd import I2cLcd
+                if i2c_addr is not None:
+                    I2C_ADDR = i2c_addr
+                else:
+                    devices = i2c.scan()
+                    if not devices:
+                        raise ValueError('No I2C devices found - check wiring.')
+                    # Common PCF8574 I2C backpack addresses (0x27 or 0x3F, or range 0x20-0x27 / 0x38-0x3F)
+                    common_lcd_addrs = [0x27, 0x3F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E]
+                    matched = [addr for addr in devices if addr in common_lcd_addrs]
+                    if matched:
+                        I2C_ADDR = matched[0]
+                    else:
+                        I2C_ADDR = devices[0]
                 self._lcd = I2cLcd(i2c, I2C_ADDR, 2, 16)
             except ImportError as e:
                 raise e
-            except:
-                raise ValueError('Could not connect to display - check wiring.')
+            except Exception as e:
+                raise ValueError(f'Could not connect to display ({e}) - check wiring.')
         self._working = False
 
     def reset(self):
@@ -127,10 +140,12 @@ class LCDDisplay(Display):
             Log.e("LCDDisplay - Display busy")
             return
         self._working = True
-        Log.i(f"LCDDisplay - showing number {number} at {row},{col}")
-        self._lcd.move_to(col, row)
-        self._lcd.putstr(f"{number}")
-        self._working = False
+        try:
+            Log.i(f"LCDDisplay - showing number {number} at {row},{col}")
+            self._lcd.move_to(col, row)
+            self._lcd.putstr(f"{number}")
+        finally:
+            self._working = False
 
     def showNumbers(self, num1, num2, colon=True, row=0, col=0):
         """
@@ -142,26 +157,30 @@ class LCDDisplay(Display):
             Log.e("LCDDisplay - Display busy")
             return
         self._working = True
-        Log.i(f"LCDDisplay - showing numbers {num1}, {num2} at {row},{col}")
-        self._lcd.move_to(col, row)
-        colsym = ":" if colon else " "
-        self._lcd.putstr(f"{num1}{colsym}{num2}")
-        self._working = False
+        try:
+            Log.i(f"LCDDisplay - showing numbers {num1}, {num2} at {row},{col}")
+            self._lcd.move_to(col, row)
+            colsym = ":" if colon else " "
+            self._lcd.putstr(f"{num1}{colsym}{num2}")
+        finally:
+            self._working = False
 
     def showText(self, text, row=0, col=0):
         """
-        Show a string - only first 4 characters will be shown
-        for anything bigger than 4 characters.
+        Show a string on the LCD display at the specified row and column.
+        For a standard 16x2 LCD, row can be 0 or 1, and column 0 to 15.
         """
         
         if self._working:
             Log.e("LCDDisplay - Display busy")
             return
         self._working = True
-        Log.i(f"LCDDisplay - showing text {text} at {row},{col}")
-        self._lcd.move_to(col, row)
-        self._lcd.putstr(text)
-        self._working = False
+        try:
+            Log.i(f"LCDDisplay - showing text {text} at {row},{col}")
+            self._lcd.move_to(col, row)
+            self._lcd.putstr(text)
+        finally:
+            self._working = False
 
     def addShape(self, position, shapearray):
         """
@@ -201,14 +220,16 @@ class LCDDisplay(Display):
             Log.e("LCDDisplay - Display busy")
             return
         self._working = True
-        Log.i(f"LCDDisplay - scrolling text {text} in row {row}")
-        for p in range(0,len(text)+skip, skip):
-            curst = (text+' '*(16+skip))[p:p+16]
-            for c in range(16,0,-1):
-                self._lcd.move_to(c-1, row)
-                self._lcd.putchar(curst[c-1])
-            time.sleep(speed/1000)
-        self._working = False
+        try:
+            Log.i(f"LCDDisplay - scrolling text {text} in row {row}")
+            for p in range(0,len(text)+skip, skip):
+                curst = (text+' '*(16+skip))[p:p+16]
+                for c in range(16,0,-1):
+                    self._lcd.move_to(c-1, row)
+                    self._lcd.putchar(curst[c-1])
+                time.sleep(speed/1000)
+        finally:
+            self._working = False
 
 """
 Example usage of the LCDDisplay class

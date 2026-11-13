@@ -109,7 +109,7 @@ class LightStrip(Light):
         
         self._np.write()
         
-    def setBrightness(self, brightness=0.5):
+    def setBrightness(self, brightness=0.5, apply_now=False):
         """ 
         Change the brightness of the pixel 0-1 range 
         Note that this does not change the actual brightness of the
@@ -117,14 +117,18 @@ class LightStrip(Light):
         This means that the colors will be dimmed, but the LEDs will
         still be on at full brightness.
 
-        Also, changing the brightness will not change the current
-        color of the LEDs, but only the colors sent to the LEDs in
-        the future. If you want to change the current color, you
-        need to call setColor or setPixel again.
+        By default, changing brightness only affects colors sent in
+        the future. Set apply_now=True to immediately rescale the
+        current colors in the buffer.
         """
-        
+        old_brightness = self._brightness
         self._brightness = brightness
         Log.i(f'{self._name} set brightness to {brightness}')
+        if apply_now and old_brightness > 0:
+            scale = brightness / old_brightness
+            for x in range(self._numleds):
+                self._np[x] = tuple(min(255, int(c * scale)) for c in self._np[x])
+            self._np.write()
         
     def run(self, runtype=0):
         """ Run a single cycle of FILLS, CHASES or RAINBOW """
@@ -159,17 +163,16 @@ class LightStrip(Light):
         pass
 
     def _fill(self, color):
-        self._np.fill(color)
-        pass
-
+        modifiedcolor = tuple(int(col * self._brightness) for col in color)
+        self._np.fill(modifiedcolor)
 
     def color_chase(self, color, wait):
         for i in range(self._numleds):
             if not self._running:
                 break
             self._set_pixel(i, color)
-            time.sleep(wait)
             self._np.write()
+            time.sleep(wait)
         time.sleep(0.2)
     
     def wheel(self, pos):

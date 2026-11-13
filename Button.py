@@ -63,8 +63,8 @@ class Button:
         
         t = time.ticks_ms()
         v = self._pin.value()
-        if ((self._lastStatus == None or self._lastStatus != v) and t-self._debounce_time) > 50:
-            self._debounce_time=t
+        if (self._lastStatus is None or self._lastStatus != v) and (time.ticks_diff(t, self._debounce_time) > 50):
+            self._debounce_time = t
             self._lastStatus = v
             if self._handler is not None:
                 if self.isPressed():
@@ -128,8 +128,8 @@ class Joystick(Button):
     def getStatusCode(self):
         """
         Return the status code of the joystick
-        0 - center, 1 left 2 right 3 up 4 down
-        5 if it is not quite in any distinct position
+        0 - Center, 1 - Up, 2 - Down, 3 - Left, 4 - Right
+        5 if it is not quite in any distinct position (Moving)
         """
 
         (x,y) = self.getData()
