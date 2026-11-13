@@ -78,12 +78,17 @@ class PassiveBuzzer(Buzzer):
         self.stop()
 
     def play(self, tone=500):
-        """ play the supplied tone. """
-        
-        Log.i(f"{self._name}: playing tone {tone}")
-        self._buz.freq(tone)
-        self._buz.duty_u16(int(self._volume * self.MAX))
-        self._playing = True
+        """ play the supplied tone. tone=0 stops playing """
+        if tone == 0:
+            self.stop()
+            return
+        try:
+            Log.i(f"{self._name}: playing tone {tone}")
+            self._buz.freq(tone)
+            self._buz.duty_u16(int(self._volume * self.MAX))
+            self._playing = True
+        except Exception as e:
+            Log.e(f"Error: {e}")
 
     def stop(self):
         """ Stop playing sound """

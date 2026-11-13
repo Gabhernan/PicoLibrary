@@ -217,9 +217,9 @@ class StateModel:
                     Log.d(f"Processing event {event}")
                 self.gotoState(newstate, event)
             else:
-                if self._debug:
-                    if event != "no_event":
-                        if not self._handler.stateEvent(self._curState, event):
+                if event != "no_event":
+                    if not self._handler.stateEvent(self._curState, event):
+                        if self._debug:
                             Log.d(f"Ignoring event {event}")                    
         else:
             raise ValueError(f"Invalid event {event}")

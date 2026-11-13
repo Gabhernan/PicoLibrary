@@ -640,6 +640,26 @@ class WebServer:
             </body></html>"""
         return html
     
+    def unquote(self, string):
+        """ Unquote percent-encoded string (e.g. %2C -> , %20 -> space) """
+        if not string:
+            return ""
+        string = string.replace('+', ' ')
+        parts = string.split('%')
+        if len(parts) == 1:
+            return string
+        res = [parts[0]]
+        for part in parts[1:]:
+            if len(part) >= 2:
+                try:
+                    code = int(part[:2], 16)
+                    res.append(chr(code) + part[2:])
+                except ValueError:
+                    res.append('%' + part)
+            else:
+                res.append('%' + part)
+        return ''.join(res)
+
     def parse_data(self, data):
         """Parse form data from GET or POST request"""
         try:
@@ -650,11 +670,12 @@ class WebServer:
                 for pair in pairs:
                     if '=' in pair:
                         key, value = pair.split('=', 1)
-                        # Simple URL decoding
-                        value = value.replace('+', ' ')
+                        key = self.unquote(key)
+                        value = self.unquote(value)
                         params[key] = value
             return params
-        except:
+        except Exception as e:
+            Log.e(f"Error parsing request data: {e}")
             return {}
         
     def parse_request(self, request):
